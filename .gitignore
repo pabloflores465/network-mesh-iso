@@ -1,0 +1,19 @@
+# Generated / large files
+songs/raw/
+output/
+*.log
+*.iso
+
+# Nix lock files (regenerate)
+flake.lock
+nixos/flake.lock
+
+# Docker
+Dockerfile.nix
+
+# Build scripts (keep only the working one)
+build_iso.sh
+build_iso2.sh
+build_iso3.sh
+build.sh
+Dockerfile
