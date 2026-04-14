@@ -1,0 +1,78 @@
+name: Build NixOS ISO
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'nixos/**'
+      - 'scripts/**'
+      - '.github/workflows/build-iso.yml'
+  workflow_dispatch:
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Build ISO
+        working-directory: ./nixos
+        run: |
+          nix build .#nixosConfigurations.mesh-iso.config.system.build.isoImage \
+            --extra-experimental-features "nix-command flakes" \
+            --out-link result
+
+      - name: Find ISO
+        id: iso
+        run: |
+          ISO_PATH=$(find nixos/result -name "*.iso" | head -1)
+          ISO_NAME=$(basename "$ISO_PATH")
+          echo "path=$ISO_PATH" >> $GITHUB_OUTPUT
+          echo "name=$ISO_NAME" >> $GITHUB_OUTPUT
+          echo "Found ISO: $ISO_PATH"
+          ls -lh "$ISO_PATH"
+
+      - name: Upload ISO to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: iso-${{ github.sha }}
+          name: "Network Music Mesh ISO ($(date +%Y-%m-%d))"
+          files: ${{ steps.iso.outputs.path }}
+          body: |
+            ## 🎵 Network Music Mesh - NixOS ISO
+
+            - **Arch:** x86_64 (Intel/AMD)
+            - **Base:** NixOS 24.11 minimal installation CD
+            - **Built on:** $(date)
+            - **Commit:** ${{ github.sha }}
+
+            ### Usage
+            1. Download the ISO
+            2. Flash to USB: `dd if=mesh-*.iso of=/dev/sdX bs=4M status=progress`
+            3. Boot from USB
+            4. Services auto-start: mesh-agent (discovery, streaming), webui (port 8080)
+
+            ### Features
+            - Auto-discovery mesh nodes via UDP heartbeat
+            - Master election based on system resources
+            - Icecast music streaming
+            - Web dashboard + TUI
+            - 25 unique songs per node
+
+      - name: Upload ISO as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-mesh-iso-x86_64
+          path: ${{ steps.iso.outputs.path }}
+          retention-days: 90
