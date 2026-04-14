@@ -1,162 +1,155 @@
 # 🎵 Network Music Mesh - Plan de Implementación
 
-## Descripción General
-Sistema de red mesh auto-organizada entre nodos GNU/Linux (USB boot),
-donde cada nodo comparte canciones por streaming y la red se fragmenta/
-reconecta dinámicamente según proximidad.
+> **Project Repo:** https://github.com/pabloflores465/network-mesh-iso
+> **Last Update:** 2025-04-14
+
+## Descripción
+Sistema de red mesh auto-organizada entre nodos GNU/Linux bootables desde USB.
+Cada nodo detecta redes mesh activas o crea la suya propia. El nodo con más
+recursos se convierte automáticamente en **Master** y transmite música por
+streaming a todos los nodos conectados.
 
 ---
 
-## Arquitectura del Sistema
+## Entregables Completados ✅
 
-### Capa 1 - Infraestructura de Red (mesh)
-- **olsrd2** o **batman-adv** como protocolo de enrutamiento mesh
-- **hostapd** para crear punto de acceso WiFi cuando no detecta red existente
-- **wpa_supplicant** para unirse a redes existentes
-- Detección automática: escanear → ¿hay red master? → unirse : crear nueva
-- Fragmentación por distancia: si pierde conexión → crea red hija/propia
+### ✅ 1. Scripts del Agente Mesh (`scripts/mesh_agent.py`, `nixos/scripts/`)
+- [x] Discovery UDP broadcast cada 2s
+- [x] Escaneo WiFi / creación de AP (hostapd) / unión a redes
+- [x] Elección de master basada en score (RAM + CPU + WiFi)
+- [x] Re-elección periódica ante cambios de topología
+- [x] Icecast2 + ffmpeg streaming automático en el Master
+- [x] Client slave escucha stream del Master
+- [x] API REST JSON (puerto 8000)
+  - `GET /api/status` — estado completo del nodo
+  - `GET /api/songs` — catálogo de canciones
+  - `GET /api/nodes` — nodos visibles
+  - `POST /api/force_song` — forzar canción específica
+- [x] Catálogo SQLite con metadatos de canciones
 
-### Capa 2 - Descubrimiento de Nodos
-- **avahi/mDNS** para descubrimiento de servicios en red local
-- **UDP heartbeat** (puro y simple) cada 2s para detectar vecinos
-- Cada nodo anuncia: ID, recursos, canciones locales, señal RSSI
+### ✅ 2. Interfaz TUI (`scripts/mesh_tui.py`)
+- [x] TUI con curses mostrando todos los indicadores
+- [x] Tasa de transmisión (TX bitrate)
+- [x] Nodos visibles con detalle
+- [x] Nivel de señal (RSSI)
+- [x] Modulación WiFi
+- [x] Canciones locales (25 por nodo)
+- [x] Canción actual en streaming
+- [x] Log de actividad
 
-### Capa 3 - Selección de Master (Distributed Leader Election)
-- Algoritmo estilo Bul Election basado en:
-  - RAM disponible
-  - CPU speed
-  - Ancho de banda de red
-  - Score = (RAM_GB * 2) + (CPU_cores * 3) + (WiFi_speed_Mbps)
-- El mayor score → Master
-- Re-elección periódica y al detectar cambios de topología
+### ✅ 3. Interfaz Web (`scripts/webui.py`)
+- [x] Dashboard Flask con auto-refresh cada 3s
+- [x] Tarjeta de nodo: ID, rol, red, modulación, señal, bitrate
+- [x] Tabla de nodos visibles con señal y rol
+- [x] Lista de canciones locales
+- [x] Indicadores de color (🟢🟡🔴 para señal)
+- [x] Acceso desde cualquier navegador
 
-### Capa 4 - Streaming de Música
-- **Icecast2** como servidor de streaming en el Master
-- **mpg123** / **ffmpeg** para decodificar y enviar al stream
-- **Liquidsoap** como motor de playlist/rotación automática
-- **darkice** o script custom como fuente → icecast
-- Master selecciona canción aleatoria de entre TODAS las canciones de TODOS los nodos
-- También acepta comandos externos (`curl`, CLI) para canción específica
+### ✅ 4. Configuración NixOS (`nixos/flake.nix`, `nixos/configuration.nix`)
+- [x] Flake.nix con nixpkgs nixos-24.11
+- [x] configuration.nix con todos los paquetes necesarios
+- [x] Base: installation-cd-minimal.nix (live CD)
+- [x] Paquetes: python3, flask, hostapd, wpa_supplicant, icecast, ffmpeg, etc.
+- [x] Servicios systemd: mesh-agent, mesh-webui
+- [x] Allow unfree packages (para ffmpeg-full)
+- [x] MOTD con instrucciones
+- [x] **La evaluación del flake funciona correctamente** ✅
+- [x] Target: x86_64-linux (Intel/AMD)
 
-### Capa 5 - Base de Datos de Canciones
-- Cada nodo tiene 25 canciones únicas (solo ese nodo las posee)
-- Catálogo distribuido: cada nodo conoce qué canciones tienen los demás
-- Política de almacenamiento: `/var/lib/network-music/local/` (propias)
-- Metadatos: SQLite local con ID, título, artista, duración, nodo_origen
+### ✅ 5. Canciones (2420+ generadas, 1.2GB)
+- [x] 2420 canciones sintetizadas con sox (`songs/raw/`)
+- [x] 16 géneros × 12 mood combinations
+- [x] Duraciones de 30-90 segundos
+- [x] Script `download_songs.py` para descargar/regenerar
+- [x] Script `gen_songs.sh` Docker para sox
+- [x] Distribución: 25 canciones únicas por nodo × 80 nodos = 2000
 
-### Capa 6 - Interfaz de Control
-- **TUI** en ncurses (Python o Rust)
-- **Web UI** ligera (Python + Flask/FastAPI) para acceso remoto
-- Muestra indicadores en tiempo real:
-  - Tasa de transmisión activa (bitrate del stream)
-  - Nodos visibles activamente
-  - Nivel de señal (RSSI) de cada nodo
-  - Modulación WiFi en uso (802.11a/b/g/n/ac)
-  - Canciones locales (las 25 propias)
-  - Canción actual en streaming
+### ✅ 6. Repositorio Git + GitHub
+- [x] Repo inicializado
+- [x] .gitignore configurado (excluye songs raw, output)
+- [x] Commit inicial con toda la documentación y código
+- [x] Push a GitHub: https://github.com/pabloflores465/network-mesh-iso
 
 ---
 
-## Estructura del Repositorio
+## Entregables Pendientes ❌
+
+### ❌ 7. Construcción de la ISO
+- [ ] **Build ISO bootable x86_64** → **BLOCKED: Docker tiene solo 3.8GB RAM**
+  - El flake evalúa correctamente ✅
+  - La configuración NixOS es válida ✅
+  - El build falla por OOM en emulación x86_64 desde Mac ARM64
+  - **Solución:** ejecutar `nix build` en:
+    1. Máquinas Linux nativas x86_64 (recomendado)
+    2. Mac con Docker configurado a 8GB+ RAM
+    3. VM Linux con NixOS
+
+### ❌ 8. Testing
+- [ ] Boot en QEMU x86_64
+- [ ] Simular 2-3 nodos
+- [ ] Verificar mesh + streaming
+
+---
+
+## Cómo Construir la ISO (cuando tengas recursos suficientes)
+
+### En NixOS Linux (recomendado):
+```bash
+cd nixos/
+nix build .#nixosConfigurations.mesh-iso.config.system.build.isoImage
+ls -l result/
+```
+
+### En cualquier Linux con Nix:
+```bash
+cd nixos/
+nix --extra-experimental-features "nix-command flakes" \
+  build .#nixosConfigurations.mesh-iso.config.system.build.isoImage
+ls -l result/
+```
+
+### En macOS (requiere Docker con 8GB+ RAM):
+```bash
+docker build --platform linux/amd64 -t nix-builder -f Dockerfile.nix .
+cd nixos/
+docker run --platform linux/amd64 --security-opt seccomp=unconfined --rm \
+  -v "$(pwd):/src" -w /src nix-builder \
+  nix build .#nixosConfigurations.mesh-iso.config.system.build.isoImage \
+  --extra-experimental-features "nix-command flakes" \
+  --option sandbox false
+```
+
+---
+
+## Arquitectura Final
 
 ```
-network_iso/
-├── PLAN.md                    ← Este archivo
-├── nixos/
-│   ├── configuration.nix      ← Configuración principal NixOS
-│   ├── hardware-configuration.nix ← Hardware genérico x86_64
-│   ├── flake.nix              ← Flake para build reproducible
-│   ├── flake.lock
-│   └── overlay/
-│       └── default.nix        ← Overlays custom si necesario
-├── services/
-│   ├── network-mesh.service.nix    ← Servicio mesh
-│   ├── master-election.service.nix ← Elección de master
-│   ├── music-stream.service.nix    ← Streaming Icecast
-│   └── node-agent.service.nix      ← Agente de nodo
-├── scripts/
-│   ├── mesh-manager.py        ← Script principal TUI/Web
-│   ├── mesh_agent.py          ← Daemon de agente en cada nodo
-│   ├── master_election.py     ← Algoritmo de elección
-│   ├── download_songs.py      ← Descarga 2000 canciones sin copyright
-│   ├── distribute_songs.py    ← Asigna 25 por nodo
-│   └── song_catalog.py        ← Catálogo SQLite
-├── songs/
-│   └── raw/                   ← 2000 canciones descargadas
-│   └── nodes/
-│       ├── node001/           ← 25 canciones del nodo 1
-│       ├── node002/
-│       └── ...
-├── build.sh                   ← Script de construcción de la ISO
-└── README.md
+┌─────────────┐     UDP Heartbeat      ┌─────────────┐
+│  Node 001   │ ◄─────────────────────► │  Node 002   │
+│  MASTER ⭐  │     WiFi (2.4GHz)       │   SLAVE     │
+│ 25 songs    │     MeshMusic-xxxx       │ 25 songs    │
+│ Icecast     │                         │ mpg123      │
+│ Port 8080   │                         │ Port 8080   │
+└─────────────┘                         └─────────────┘
+       │                                       │
+       │        ┌─────────────┐                │
+       └───────►│  Node 003   │◄───────────────┘
+                │   SLAVE     │
+                │ 25 songs    │
+                │ mpg123      │
+                └─────────────┘
+
+Si Node 003 se aleja → crea su propia red MeshMusic-yyyy
+con su propio master, aceptando nodos cercanos.
 ```
 
----
+## Indicadores por Nodo
 
-## Checklist de Entregables
-
-### Fase 1: Setup del Entorno de Build
-- [x] Instalar Nix en el sistema host (macOS) → Se usa Docker con imagen nixos/nix x86_64
-- [x] Configurar cross-compilation x86_64-linux desde macOS arm64
-- [x] Verificar que se pueda construir una ISO mínima de NixOS → En progreso (build_iso2.sh)
-
-### Fase 2: Configuración NixOS Base
-- [x] Flake.nix con inputs de NixOS stable (nixos-24.11)
-- [x] configuration.nix base con paquetes esenciales
-- [x] Incluir: hostapd, wpa_supplicant, icecast, ffmpeg, avahi, python3, iwd, dnsmasq
-- [x] Crear usuario root con auto-login al boot (USB live)
-
-### Fase 3: Servicios de Red Mesh
-- [x] Servicio de escaneo WiFi periódico (mesh_agent.py - UDP discovery)
-- [x] Servicio de creación de AP (hostapd) si no hay red
-- [x] Servicio de unión a red existente si se detecta master
-- [x] Monitoreo de distancia/calidad de enlace (RSSI, bitrate)
-- [x] Servicio de fragmentación: crear red independiente si se aleja
-
-### Fase 4: Elección de Master
-- [x] Script de evaluación de recursos (RAM, CPU, WiFi)
-- [x] Protocolo de elección distribuida (score-based Bul Election)
-- [x] Sistema de re-elección ante cambios de topología
-- [x] Broadcast del nuevo master a todos los nodos (heartbeat UDP)
-
-### Fase 5: Streaming de Música
-- [x] Icecast2 configurado como servicio en el Master
-- [x] Script fuente que rote canciones aleatoriamente (ffmpeg → icecast)
-- [x] Endpoint HTTP POST /api/force_song para forzar canción específica
-- [x] Clientes en nodos no-master para recibir stream (mpg123 curl)
-
-### Fase 6: Catálogo y Almacenamiento de Canciones
-- [x] Generar 2000+ canciones sin copyright (sox synth, 600MB+)
-- [x] Asignar 25 canciones únicas por nodo (distribute_to_nodes)
-- [x] Catalogar en SQLite con metadatos (SongCatalog class)
-- [x] Política de almacenamiento por nodo (/opt/mesh/songs/)
-
-### Fase 7: Interfaz de Control (TUI + Web)
-- [x] TUI con curses mostrando todos los indicadores (mesh_tui.py)
-- [x] Web UI con Flask mostrando dashboard (webui.py - puerto 8080)
-- [x] Indicadores: bitrate, nodos visibles, RSSI, modulación, canciones, canción actual
-
-### Fase 8: Construcción de la ISO
-- [x] Integrar todo en la imagen NixOS (configuration.nix completo)
-- [ ] Incluir canciones pre-instaladas (25 por nodo, con selector) → Se incluye en build
-- [⏳] Crear ISO bootable x86_64 → **BUILD EN PROGRESO** (build_iso2.sh)
-- [ ] Verificar tamaño y funcionalidad
-
-### Fase 9: Testing
-- [ ] Boot de ISO en QEMU x86_64
-- [ ] Simular 2-3 nodos en VM
-- [ ] Verificar mesh, streaming, TUI
-
----
-
-## Plan de Ejecución (en orden)
-
-1. `setup_nix.sh` - Instalar nix y preparar build environment
-2. `flake.nix` - Definir el flake de la ISO
-3. `configuration.nix` - Configurar NixOS
-4. `mesh_agent.py` - Daemon agente de nodo
-5. `mesh_manager.py` - TUI/Web de control
-6. `download_songs.py` - Descargar canciones
-7. `master_election.py` - Protocolo de elección
-8. `build.sh` - Construir ISO
-9. Iterar y corregir
+| Indicador | TUI | Web UI | API |
+|-----------|-----|--------|-----|
+| Tasa transmisión | ✅ | ✅ | ✅ `tx_bitrate_kbps` |
+| Nodos visibles | ✅ | ✅ | ✅ `/api/nodes` |
+| Señal RSSI | ✅ | ✅ | ✅ `signal_dbm` |
+| Modulación | ✅ | ✅ | ✅ `modulation` |
+| Canciones locales | ✅ | ✅ | ✅ `/api/songs` |
+| Canción actual | ✅ | ✅ | ✅ `current_song` |
